@@ -1,80 +1,145 @@
 import json
-import networkx as nx
 import tkinter as interface
-import matplotlib.pyplot as plt
+from tkinter import ttk, messagebox
 from ventana import centrarVentana
-from prim import cargar_grafo, prim, reconstruir_ruta
+from prim import cargar_grafo as cargar_grafo_prim, prim, reconstruir_ruta
+from kruskal import cargar_grafo as cargar_grafo_kruskal, kruskal, reconstruir_mst
+from fulkerson import cargar_grafo as cargar_grafo_ford_fulkerson, ford_fulkerson
+import networkx as nx
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-dataset_json = "algorithmic-complexity-final-project/dataset.json"
+dataset_json = "dataset.json"
+ruta_global = None
+algoritmo_global = None
+aristas_global = None
+informacion_casas = {}
+nombre_a_id = {}
+id_a_nombre = {}
 
-def pintar_grafo(dataset_json):
-    # Cargar el dataset desde el archivo JSON
+def cargar_nodos(dataset_json):
+    global informacion_casas, nombre_a_id, id_a_nombre
     with open(dataset_json, "r") as archivo:
         lista_casas = json.load(archivo)
+    nodos = [nodo["ubicacion"]["nombre"] for nodo in lista_casas]
+    informacion_casas = {nodo["ubicacion"]["nombre"]: nodo for nodo in lista_casas}
+    nombre_a_id = {nodo["ubicacion"]["nombre"]: nodo["idNodo"] for nodo in lista_casas}
+    id_a_nombre = {nodo["idNodo"]: nodo["ubicacion"]["nombre"] for nodo in lista_casas}
+    return nodos
 
-    # Crear un grafo de NetworkX
-    G = nx.Graph()
+def pintar_ruta(G, aristas, frame):
+    ruta_grafo = nx.Graph()
+    
+    pos = nx.get_node_attributes(G, 'pos')
 
-    # Agregar nodos al grafo
-    for nodo in lista_casas:
-        G.add_node(nodo["idNodo"], pos=(nodo["ubicacion"]["x"], nodo["ubicacion"]["y"]))
+    for u, v, peso in aristas:
+        ruta_grafo.add_node(u, pos=pos[u])
+        ruta_grafo.add_node(v, pos=pos[v])
+        ruta_grafo.add_edge(u, v, weight=peso)
 
-    # Agregar conexiones al grafo
-    for nodo in lista_casas:
-        for conexion in nodo["conexiones"]:
-            G.add_edge(nodo["idNodo"], conexion)
+    ruta_pos = nx.get_node_attributes(ruta_grafo, 'pos')
+    edge_labels = {(u, v): f'{d["weight"]}' for u, v, d in ruta_grafo.edges(data=True)}
+    
+    fig, ax = plt.subplots()
+    nx.draw(ruta_grafo, ruta_pos, with_labels=True, node_size=500, font_size=12, node_color='blue', edge_color='skyblue', width=2, ax=ax)
+    nx.draw_networkx_edge_labels(ruta_grafo, ruta_pos, edge_labels=edge_labels, font_color='darkblue')
 
-    # Obtener posiciones de los nodos
-    pos = nx.get_node_attributes(G, "pos")
+    canvas = FigureCanvasTkAgg(fig, master=frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=interface.TOP, fill=interface.BOTH, expand=1)
 
-    # Ajustar el tamaño de la figura para que ocupe toda la pantalla
-    fig = plt.figure()
-    fig.set_size_inches(16, 9)  # Cambia estas dimensiones según la resolución de tu pantalla
+def obtener_aristas_de_ruta(ruta, grafo):
+    aristas = []
+    for i in range(len(ruta) - 1):
+        u = ruta[i]
+        v = ruta[i + 1]
+        for vecino, peso in grafo[u]:
+            if vecino == v:
+                aristas.append((u, v, peso))
+                break
+    return aristas
 
-    # Dibujar el grafo
-    nx.draw(G, pos, with_labels=True, node_size=500, font_size=12)
+def calcularRutaMasCorta(algoritmo, valor1, valor2):
+    global ruta_global, algoritmo_global, aristas_global
 
-    # Ajustar el diseño para que se vea bien
-    plt.tight_layout()
+    if not valor1 or not valor2:
+        messagebox.showwarning("Advertencia", "Seleccione la conexión de origen y la conexión de llegada.")
+        return
 
-    # Mostrar el grafo
-    plt.show()
+    id1 = nombre_a_id[valor1]
+    id2 = nombre_a_id[valor2]
 
-def calcularRutaMasCorta(valor1, valor2):
-    valor1 = int(valor1.get())
-    valor2 = int(valor2.get())
+    if algoritmo.get() == "Prim":
+        grafo = cargar_grafo_prim(dataset_json)
+        padre, costo, aristas = prim(grafo, id1)
+        ruta, suma_pesos = reconstruir_ruta(padre, id1, id2, grafo)
+        aristas_global = obtener_aristas_de_ruta(ruta.split('->'), grafo)
+    elif algoritmo.get() == "Kruskal":
+        grafo, aristas = cargar_grafo_kruskal(dataset_json)
+        mst = kruskal(grafo, aristas)
+        ruta, suma_pesos = reconstruir_mst(mst)
+        aristas_global = obtener_aristas_de_ruta(ruta.split('->'), grafo)
+    elif algoritmo.get() == "Ford-Fulkerson":
+        grafo = cargar_grafo_ford_fulkerson(dataset_json)
+        suma_pesos = ford_fulkerson(grafo, id1, id2)
+        ruta = [id1, id2]
+        aristas_global = [(id1, id2, suma_pesos)]
 
-    # Cargar el grafo y calcular la ruta más corta
-    grafo = cargar_grafo(dataset_json)
-    padre, costo, aristas = prim(grafo, valor1)
-    ruta, suma_pesos = reconstruir_ruta(padre, valor1, valor2, grafo)
+    ruta_global = ruta
+    algoritmo_global = algoritmo
 
-    # Crear ventana secundaria para mostrar el resultado
     ventanaMatriz = interface.Toplevel(aplicacion)
-    ventanaMatriz.title("Calculadora de la ruta más corta entre dos casas")
+    ventanaMatriz.configure(bg='lightblue')
+    ventanaMatriz.title(f"Calculadora de la ruta más corta entre dos casas - {algoritmo.get()}")
 
     centrarVentana(ventanaMatriz)
 
+    # Mostrar información de las casas seleccionadas
+    info_origen = informacion_casas[valor1]
+    info_destino = informacion_casas[valor2]
+
+    interface.Label(ventanaMatriz, text=f"Casa {valor1}:", bg='lightblue').pack(pady=5)
+    interface.Label(ventanaMatriz, text=f"  Personas: {info_origen['personasQueVivenDentroDeLaCasa']}", bg='lightblue').pack(pady=5)
+    interface.Label(ventanaMatriz, text=f"  Agua por persona: {info_origen['cantidadRegularDeAguaEstimadaXpersona']} litros", bg='lightblue').pack(pady=5)
+    interface.Label(ventanaMatriz, text=f"  Total de agua: {info_origen['cantidadFinal']} litros", bg='lightblue').pack(pady=5)
+
+    interface.Label(ventanaMatriz, text=f"Casa {valor2}:", bg='lightblue').pack(pady=5)
+    interface.Label(ventanaMatriz, text=f"  Personas: {info_destino['personasQueVivenDentroDeLaCasa']}", bg='lightblue').pack(pady=5)
+    interface.Label(ventanaMatriz, text=f"  Agua por persona: {info_destino['cantidadRegularDeAguaEstimadaXpersona']} litros", bg='lightblue').pack(pady=5)
+    interface.Label(ventanaMatriz, text=f"  Total de agua: {info_destino['cantidadFinal']} litros", bg='lightblue').pack(pady=5)
+
     # Mostrar la ruta y el peso total
-    interface.Label(ventanaMatriz, text=f"La ruta final entre la casa {valor1} y la casa {valor2} es: {ruta}").pack(pady=10)
-    interface.Label(ventanaMatriz, text=f"La suma de los pesos de las aristas que conforman la ruta final es: {suma_pesos}").pack(pady=10)
+    interface.Label(ventanaMatriz, text=f"La ruta final entre la casa {valor1} y la casa {valor2} es: {ruta}", bg='lightblue').pack(pady=10)
+    interface.Label(ventanaMatriz, text=f"La distancia más óptima para enviar agua sin perdida de presion es: {suma_pesos} metros", bg='lightblue').pack(pady=10)
 
-# Pintar el grafo al inicio
-pintar_grafo(dataset_json)
+    frame_grafico = interface.Frame(ventanaMatriz, bg='lightblue')
+    frame_grafico.pack(fill=interface.BOTH, expand=True)
 
-# Configuración de la interfaz gráfica principal
+    interface.Button(ventanaMatriz, text="Generar Gráfico", command=lambda: pintar_ruta(grafo, aristas_global, frame_grafico), bg='blue', fg='white').pack(pady=10)
+    centrarVentana(ventanaMatriz)
+
 aplicacion = interface.Tk()
+aplicacion.configure(bg='lightblue')
 aplicacion.title("Dashboard")
 
-interface.Label(aplicacion, text="Ingrese el número de la primera casa:").pack(pady=10)
-valorCasa1 = interface.Entry(aplicacion)
-valorCasa1.pack(pady=10, padx=200)
+interface.Label(aplicacion, text="Seleccione la primera casa:", bg='lightblue').pack(pady=10)
+valorCasa1 = interface.StringVar(aplicacion)
+opciones_nodos = cargar_nodos(dataset_json)
+dropdown1 = ttk.Combobox(aplicacion, textvariable=valorCasa1, values=opciones_nodos)
+dropdown1.pack(pady=10, padx=200)
 
-interface.Label(aplicacion, text="Ingrese el número de la segunda casa:").pack(pady=10)
-valorCasa2 = interface.Entry(aplicacion)
-valorCasa2.pack(pady=10, padx=200)
+interface.Label(aplicacion, text="Seleccione la segunda casa:", bg='lightblue').pack(pady=10)
+valorCasa2 = interface.StringVar(aplicacion)
+dropdown2 = ttk.Combobox(aplicacion, textvariable=valorCasa2, values=opciones_nodos)
+dropdown2.pack(pady=10, padx=200)
 
-interface.Button(aplicacion, text="Generar la ruta más corta", command=lambda: calcularRutaMasCorta(valorCasa1, valorCasa2)).pack(pady=10)
+interface.Label(aplicacion, text="Seleccione el algoritmo:", bg='lightblue').pack(pady=10)
+algoritmo_var = interface.StringVar(value="Prim")
+interface.Radiobutton(aplicacion, text="Prim", variable=algoritmo_var, value="Prim", bg='lightblue').pack(pady=5)
+interface.Radiobutton(aplicacion, text="Kruskal", variable=algoritmo_var, value="Kruskal", bg='lightblue').pack(pady=5)
+interface.Radiobutton(aplicacion, text="Ford-Fulkerson", variable=algoritmo_var, value="Ford-Fulkerson", bg='lightblue').pack(pady=5)
+
+interface.Button(aplicacion, text="Generar la ruta más corta", command=lambda: calcularRutaMasCorta(algoritmo_var, valorCasa1.get(), valorCasa2.get()), bg='blue', fg='white').pack(pady=10)
 
 centrarVentana(aplicacion)
 aplicacion.mainloop()
