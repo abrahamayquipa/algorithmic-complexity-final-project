@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict, deque
 import tkinter as interface
 from tkinter import ttk, messagebox
 from ventana import centrarVentana
@@ -7,7 +8,6 @@ from kruskal import cargar_grafo as cargar_grafo_kruskal, kruskal, reconstruir_m
 from fulkerson import cargar_grafo as cargar_grafo_ford_fulkerson, ford_fulkerson
 import networkx as nx
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 dataset_json = "dataset.json"
 ruta_global = None
@@ -27,26 +27,28 @@ def cargar_nodos(dataset_json):
     id_a_nombre = {nodo["idNodo"]: nodo["ubicacion"]["nombre"] for nodo in lista_casas}
     return nodos
 
-def pintar_ruta(G, aristas, frame):
-    ruta_grafo = nx.Graph()
-    
-    pos = nx.get_node_attributes(G, 'pos')
+def generar_grafo(ruta):
+    arreglo = ruta.split('->')
 
-    for u, v, peso in aristas:
-        ruta_grafo.add_node(u, pos=pos[u])
-        ruta_grafo.add_node(v, pos=pos[v])
-        ruta_grafo.add_edge(u, v, weight=peso)
+    # Creamos un grafo dirigido
+    G = nx.DiGraph()
 
-    ruta_pos = nx.get_node_attributes(ruta_grafo, 'pos')
-    edge_labels = {(u, v): f'{d["weight"]}' for u, v, d in ruta_grafo.edges(data=True)}
-    
-    fig, ax = plt.subplots()
-    nx.draw(ruta_grafo, ruta_pos, with_labels=True, node_size=500, font_size=12, node_color='blue', edge_color='skyblue', width=2, ax=ax)
-    nx.draw_networkx_edge_labels(ruta_grafo, ruta_pos, edge_labels=edge_labels, font_color='darkblue')
+    # Agregamos nodos al grafo
+    for i, valor in enumerate(arreglo):
+        G.add_node(i, label=str(valor))
 
-    canvas = FigureCanvasTkAgg(fig, master=frame)
-    canvas.draw()
-    canvas.get_tk_widget().pack(side=interface.TOP, fill=interface.BOTH, expand=1)
+    # Agregamos aristas entre nodos consecutivos
+    for i in range(len(arreglo) - 1):
+        G.add_edge(i, i + 1)
+
+    # Dibujamos el grafo
+    pos = nx.spring_layout(G)  # Layout para posicionar los nodos
+    nx.draw(G, pos, with_labels=True, labels=nx.get_node_attributes(G, 'label'),
+            node_color='lightblue', node_size=2000, font_size=10, font_color='black', edge_color='black', width=2.0)
+
+    # Mostramos el grafo
+    plt.title('Grafo con Arreglo')
+    plt.show()
 
 def obtener_aristas_de_ruta(ruta, grafo):
     aristas = []
@@ -59,7 +61,7 @@ def obtener_aristas_de_ruta(ruta, grafo):
                 break
     return aristas
 
-def calcularRutaMasCorta(algoritmo, valor1, valor2):
+def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
     global ruta_global, algoritmo_global, aristas_global
 
     if not valor1 or not valor2:
@@ -115,7 +117,7 @@ def calcularRutaMasCorta(algoritmo, valor1, valor2):
     frame_grafico = interface.Frame(ventanaMatriz, bg='lightblue')
     frame_grafico.pack(fill=interface.BOTH, expand=True)
 
-    interface.Button(ventanaMatriz, text="Generar Gráfico", command=lambda: pintar_ruta(grafo, aristas_global, frame_grafico), bg='blue', fg='white').pack(pady=10)
+    interface.Button(ventanaMatriz, text="Generar Gráfico", command=lambda: generar_grafo(ruta), bg='blue', fg='white').pack(pady=10)
     centrarVentana(ventanaMatriz)
 
 aplicacion = interface.Tk()
@@ -139,7 +141,7 @@ interface.Radiobutton(aplicacion, text="Prim", variable=algoritmo_var, value="Pr
 interface.Radiobutton(aplicacion, text="Kruskal", variable=algoritmo_var, value="Kruskal", bg='lightblue').pack(pady=5)
 interface.Radiobutton(aplicacion, text="Ford-Fulkerson", variable=algoritmo_var, value="Ford-Fulkerson", bg='lightblue').pack(pady=5)
 
-interface.Button(aplicacion, text="Generar la ruta más corta", command=lambda: calcularRutaMasCorta(algoritmo_var, valorCasa1.get(), valorCasa2.get()), bg='blue', fg='white').pack(pady=10)
+interface.Button(aplicacion, text="Generar la ruta más corta", command=lambda: calcular_ruta_mas_corta(algoritmo_var, valorCasa1.get(), valorCasa2.get()), bg='blue', fg='white').pack(pady=10)
 
 centrarVentana(aplicacion)
 aplicacion.mainloop()
