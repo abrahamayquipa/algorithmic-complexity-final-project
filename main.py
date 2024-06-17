@@ -1,5 +1,6 @@
 import json
 from collections import defaultdict, deque
+import time
 import tkinter as interface
 from tkinter import ttk, messagebox
 from ventana import centrarVentana
@@ -73,19 +74,34 @@ def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
 
     if algoritmo.get() == "Prim":
         grafo = cargar_grafo_prim(dataset_json)
+        inicio = time.perf_counter()
         padre, costo, aristas = prim(grafo, id1)
         ruta, suma_pesos = reconstruir_ruta(padre, id1, id2, grafo)
+        # Medicion de tiempo
+        fin = time.perf_counter()
+        tiempo_prim = (fin - inicio) * 1000
         aristas_global = obtener_aristas_de_ruta(ruta.split('->'), grafo)
+        tiempo_ejecucion = f"Tiempo de ejecución de Prim: {tiempo_prim:.2f} ms"
     elif algoritmo.get() == "Kruskal":
         grafo, aristas = cargar_grafo_kruskal(dataset_json)
+        inicio = time.perf_counter()
         mst = kruskal(grafo, aristas)
         ruta, suma_pesos = reconstruir_mst(mst)
+        # Medicion de tiempo
+        fin = time.perf_counter()
+        tiempo_kruskal = (fin - inicio) * 1000
         aristas_global = obtener_aristas_de_ruta(ruta.split('->'), grafo)
+        tiempo_ejecucion = f"Tiempo de ejecución de Kruskal: {tiempo_kruskal:.2f} ms"
     elif algoritmo.get() == "Ford-Fulkerson":
         grafo = cargar_grafo_ford_fulkerson(dataset_json)
+        # Medicion de tiempo
+        inicio = time.perf_counter()
         suma_pesos = ford_fulkerson(grafo, id1, id2)
+        fin = time.perf_counter()
+        tiempo_ford_fulkerson = (fin - inicio) * 1000
         ruta = [id1, id2]
         aristas_global = [(id1, id2, suma_pesos)]
+        tiempo_ejecucion = f"Tiempo de ejecución de Ford-Fulkerson: {tiempo_ford_fulkerson:.2f} ms"
 
     ruta_global = ruta
     algoritmo_global = algoritmo
@@ -112,7 +128,10 @@ def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
 
     # Mostrar la ruta y el peso total
     interface.Label(ventanaMatriz, text=f"La ruta final entre la casa {valor1} y la casa {valor2} es: {ruta}", bg='lightblue').pack(pady=10)
-    interface.Label(ventanaMatriz, text=f"La distancia más óptima para enviar agua sin perdida de presion es: {suma_pesos} metros", bg='lightblue').pack(pady=10)
+    interface.Label(ventanaMatriz, text=f"La distancia más óptima para enviar agua sin perdida de presión es: {suma_pesos} metros", bg='lightblue').pack(pady=10)
+
+    # Mostrar el tiempo de ejecución
+    interface.Label(ventanaMatriz, text=tiempo_ejecucion, bg='lightblue').pack(pady=10)
 
     frame_grafico = interface.Frame(ventanaMatriz, bg='lightblue')
     frame_grafico.pack(fill=interface.BOTH, expand=True)
@@ -141,7 +160,7 @@ interface.Radiobutton(aplicacion, text="Prim", variable=algoritmo_var, value="Pr
 interface.Radiobutton(aplicacion, text="Kruskal", variable=algoritmo_var, value="Kruskal", bg='lightblue').pack(pady=5)
 interface.Radiobutton(aplicacion, text="Ford-Fulkerson", variable=algoritmo_var, value="Ford-Fulkerson", bg='lightblue').pack(pady=5)
 
-interface.Button(aplicacion, text="Generar la ruta más corta", command=lambda: calcular_ruta_mas_corta(algoritmo_var, valorCasa1.get(), valorCasa2.get()), bg='blue', fg='white').pack(pady=10)
+interface.Button(aplicacion, text="Calcular", command=lambda: calcular_ruta_mas_corta(algoritmo_var, valorCasa1.get(), valorCasa2.get()), bg='blue', fg='white').pack(pady=20)
 
 centrarVentana(aplicacion)
 aplicacion.mainloop()
