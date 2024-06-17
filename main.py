@@ -94,14 +94,15 @@ def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
         tiempo_ejecucion = f"Tiempo de ejecución de Kruskal: {tiempo_kruskal:.2f} ms"
     elif algoritmo.get() == "Ford-Fulkerson":
         grafo = cargar_grafo_ford_fulkerson(dataset_json)
-        # Medicion de tiempo
+        fuente = id1
+        sumidero = id2
         inicio = time.perf_counter()
-        suma_pesos = ford_fulkerson(grafo, id1, id2)
+        suma_pesos, rutas = ford_fulkerson(grafo, fuente, sumidero)
         fin = time.perf_counter()
         tiempo_ford_fulkerson = (fin - inicio) * 1000
-        ruta = [id1, id2]
-        aristas_global = [(id1, id2, suma_pesos)]
-        tiempo_ejecucion = f"Tiempo de ejecución de Ford-Fulkerson: {tiempo_ford_fulkerson:.2f} ms"
+        rutas_legibles = [" -> ".join(map(str, ruta)) for ruta in rutas]
+        ruta = rutas_legibles[0] if rutas_legibles else ""
+        tiempo_ejecucion = f"Tiempo de ejecución de Ford-Fulkerson: {tiempo_ford_fulkerson:.2f} ms" 
 
     ruta_global = ruta
     algoritmo_global = algoritmo
