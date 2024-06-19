@@ -5,11 +5,19 @@ from collections import defaultdict, deque
 def cargar_grafo(archivo):
     with open(archivo) as f:
         data = json.load(f)
-    grafo = defaultdict(dict)
+    grafo = defaultdict(list)
     for nodo in data:
         for conexion in nodo["conexiones"]:
-            grafo[nodo["idNodo"]][conexion] = nodo["cantidadFinal"]
+            grafo[nodo["idNodo"]].append((conexion, nodo["cantidadFinal"]))
     return grafo
+
+def crea_grafo_residual(grafo):
+    grafo_residual = defaultdict(lambda: defaultdict(int))
+    for u in grafo:
+        for v, capacidad in grafo[u]:
+            grafo_residual[u][v] = capacidad
+            grafo_residual[v][u] = 0
+    return grafo_residual
 
 def bfs(camino_residual, fuente, sumidero, padre):
     visitados = set()
@@ -29,30 +37,35 @@ def bfs(camino_residual, fuente, sumidero, padre):
     return False
 
 def ford_fulkerson(grafo, fuente, sumidero):
-    camino_residual = defaultdict(lambda: defaultdict(int))
-    
-    for u in grafo:
-        for v in grafo[u]:
-            camino_residual[u][v] = grafo[u][v]
-    
+    grafo_residual = crea_grafo_residual(grafo)
     flujo_maximo = 0
     padre = {}
+    rutas = []
     
-    while bfs(camino_residual, fuente, sumidero, padre):
+    while bfs(grafo_residual, fuente, sumidero, padre):
         flujo_path = float('Inf')
         s = sumidero
         
         while s != fuente:
-            flujo_path = min(flujo_path, camino_residual[padre[s]][s])
+            flujo_path = min(flujo_path, grafo_residual[padre[s]][s])
             s = padre[s]
         
         v = sumidero
         while v != fuente:
             u = padre[v]
-            camino_residual[u][v] -= flujo_path
-            camino_residual[v][u] += flujo_path
+            grafo_residual[u][v] -= flujo_path
+            grafo_residual[v][u] += flujo_path
             v = padre[v]
         
         flujo_maximo += flujo_path
+        ruta = []
+        nodo = sumidero
+        while nodo != fuente:
+            ruta.append(nodo)
+            nodo = padre[nodo]
+        ruta.append(fuente)
+        ruta.reverse()
+        rutas.append(ruta)
     
-    return flujo_maximo
+    return flujo_maximo, rutas
+
