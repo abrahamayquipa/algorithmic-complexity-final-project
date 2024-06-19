@@ -5,51 +5,61 @@ from collections import defaultdict
 def cargar_grafo(archivo):
     with open(archivo) as f:
         data = json.load(f)
-    grafo = defaultdict(list)
+    grafo = defaultdict(dict)
     aristas = []
     for nodo in data:
         for conexion in nodo["conexiones"]:
-            grafo[nodo["idNodo"]].append((conexion, nodo["cantidadFinal"]))
-            grafo[conexion].append((nodo["idNodo"], nodo["cantidadFinal"]))
+            grafo[nodo["idNodo"]][conexion] = nodo["cantidadFinal"]
+            grafo[conexion][nodo["idNodo"]] = nodo["cantidadFinal"]
             aristas.append((nodo["cantidadFinal"], nodo["idNodo"], conexion))
     return grafo, aristas
 
-def encontrar(padre, nodo):
-    if padre[nodo] == nodo:
-        return nodo
-    return encontrar(padre, padre[nodo])
+class ConjuntoDisjunto:
+    def __init__(self, vertices):
+        self.padre = {v: v for v in vertices}
+        self.altura = {v: 0 for v in vertices}
 
-def unir(padre, rango, nodo1, nodo2):
-    raiz1 = encontrar(padre, nodo1)
-    raiz2 = encontrar(padre, nodo2)
-    
-    if rango[raiz1] < rango[raiz2]:
-        padre[raiz1] = raiz2
-    elif rango[raiz1] > rango[raiz2]:
-        padre[raiz2] = raiz1
-    else:
-        padre[raiz2] = raiz1
-        rango[raiz1] += 1
+    def find(self, e):
+        if self.padre[e] != e:
+            self.padre[e] = self.find(self.padre[e])
+        return self.padre[e]
 
-def kruskal(grafo, aristas):
-    aristas.sort()  
-    padre = {}
-    rango = {}
-    
-    for nodo in grafo:
-        padre[nodo] = nodo
-        rango[nodo] = 0
-    
-    mst = []
-    for peso, nodo1, nodo2 in aristas:
-        if encontrar(padre, nodo1) != encontrar(padre, nodo2):
-            unir(padre, rango, nodo1, nodo2)
-            mst.append((nodo1, nodo2, peso))
-    
-    return mst
+    def union(self, nodo1, nodo2):
+        raiz1 = self.find(nodo1)
+        raiz2 = self.find(nodo2)
+        if raiz1 != raiz2:
+            if self.altura[raiz1] > self.altura[raiz2]:
+                self.padre[raiz2] = raiz1
+            elif self.altura[raiz1] < self.altura[raiz2]:
+                self.padre[raiz1] = raiz2
+            else:
+                self.padre[raiz2] = raiz1
+                self.altura[raiz1] += 1
 
-def reconstruir_mst(mst):
-    mst.sort()
-    suma_pesos = sum(peso for _, _, peso in mst)
-    ruta = " -> ".join(f"{nodo1}-{nodo2}({peso})" for nodo1, nodo2, peso in mst)
-    return ruta, suma_pesos
+class MSTKruskal:
+    def __init__(self, grafo, aristas):
+        self.grafo = grafo
+        self.aristas = aristas
+        self.mst = []
+        self.costoTotal = 0
+
+    def kruskal(self):
+        self.aristas.sort()
+        conjunto_disjunto = ConjuntoDisjunto(self.grafo.keys())
+        for costo, nodo1, nodo2 in self.aristas:
+            if conjunto_disjunto.find(nodo1) != conjunto_disjunto.find(nodo2):
+                conjunto_disjunto.union(nodo1, nodo2)
+                self.mst.append((nodo1, nodo2, costo))
+                self.costoTotal += costo
+
+    def get_mst(self):
+        return self.mst
+
+    def get_costo_total(self):
+        return self.costoTotal
+
+    def reconstruir_mst(self):
+        self.mst.sort()
+        suma_pesos = sum(peso for _, _, peso in self.mst)
+        ruta = " -> ".join(f"{nodo1}-{nodo2}({peso})" for nodo1, nodo2, peso in self.mst)
+        return ruta, suma_pesos
