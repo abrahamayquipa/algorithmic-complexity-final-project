@@ -153,7 +153,7 @@ def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
 
     # Mostrar la ruta y el peso total
     interface.Label(ventanaMatriz, text=f"La ruta final entre la casa {valor1} y la casa {valor2} es: {ruta}", bg='lightblue').pack(pady=10)
-    interface.Label(ventanaMatriz, text=f"La distancia más óptima para enviar agua sin perdida de presión es: {suma_pesos} metros", bg='lightblue').pack(pady=10)
+    interface.Label(ventanaMatriz, text=f"La cantidad más óptima para enviar agua sin perdida de presión es: {suma_pesos/1000} m3", bg='lightblue').pack(pady=10)
 
     # Mostrar el tiempo de ejecución
     interface.Label(ventanaMatriz, text=tiempo_ejecucion, bg='lightblue').pack(pady=10)
@@ -166,7 +166,7 @@ def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
 
 aplicacion = interface.Tk()
 aplicacion.configure(bg='lightblue')
-aplicacion.title("Dashboard")
+aplicacion.title("OPTIMIZACIÓN DE DISTRIBUCIÓN DE AGUA")
 
 interface.Label(aplicacion, text="Seleccione la primera casa:", bg='lightblue').pack(pady=10)
 valorCasa1 = interface.StringVar(aplicacion)
