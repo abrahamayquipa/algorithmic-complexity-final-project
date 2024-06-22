@@ -5,7 +5,7 @@ import tkinter as interface
 from tkinter import ttk, messagebox
 from ventana import centrarVentana
 from prim import cargar_grafo as cargar_grafo_prim, prim, reconstruir_ruta
-from kruskal import cargar_grafo as cargar_grafo_kruskal, kruskal, reconstruir_mst
+from kruskal import cargar_grafo as cargar_grafo_kruskal, MSTKruskal
 from fulkerson import cargar_grafo as cargar_grafo_ford_fulkerson, ford_fulkerson
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -84,13 +84,15 @@ def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
         tiempo_ejecucion = f"Tiempo de ejecución de Prim: {tiempo_prim:.2f} ms"
     elif algoritmo.get() == "Kruskal":
         grafo, aristas = cargar_grafo_kruskal(dataset_json)
+        kruskal_algoritmo = MSTKruskal(grafo, aristas)
         inicio = time.perf_counter()
-        mst = kruskal(grafo, aristas)
-        ruta, suma_pesos = reconstruir_mst(mst)
-        # Medicion de tiempo
+        kruskal_algoritmo.kruskal()
+        kruskal_algoritmo.get_mst()
+        ruta, suma_pesos = kruskal_algoritmo.reconstruir_mst()
+        # Medición de tiempo
         fin = time.perf_counter()
         tiempo_kruskal = (fin - inicio) * 1000
-        aristas_global = obtener_aristas_de_ruta(ruta.split('->'), grafo)
+        aristas_global = obtener_aristas_de_ruta(ruta.split(' -> '), grafo)
         tiempo_ejecucion = f"Tiempo de ejecución de Kruskal: {tiempo_kruskal:.2f} ms"
     elif algoritmo.get() == "Ford-Fulkerson":
         grafo = cargar_grafo_ford_fulkerson(dataset_json)
@@ -117,19 +119,41 @@ def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
     info_origen = informacion_casas[valor1]
     info_destino = informacion_casas[valor2]
 
-    interface.Label(ventanaMatriz, text=f"Casa {valor1}:", bg='lightblue').pack(pady=5)
-    interface.Label(ventanaMatriz, text=f"  Personas: {info_origen['personasQueVivenDentroDeLaCasa']}", bg='lightblue').pack(pady=5)
-    interface.Label(ventanaMatriz, text=f"  Agua por persona: {info_origen['cantidadRegularDeAguaEstimadaXpersona']} litros", bg='lightblue').pack(pady=5)
-    interface.Label(ventanaMatriz, text=f"  Total de agua: {info_origen['cantidadFinal']} litros", bg='lightblue').pack(pady=5)
+    # Crear un frame principal
+    frame_principal = interface.Frame(ventanaMatriz, bg='lightblue')
+    frame_principal.pack(side='top', fill='both', expand=True)
 
-    interface.Label(ventanaMatriz, text=f"Casa {valor2}:", bg='lightblue').pack(pady=5)
-    interface.Label(ventanaMatriz, text=f"  Personas: {info_destino['personasQueVivenDentroDeLaCasa']}", bg='lightblue').pack(pady=5)
-    interface.Label(ventanaMatriz, text=f"  Agua por persona: {info_destino['cantidadRegularDeAguaEstimadaXpersona']} litros", bg='lightblue').pack(pady=5)
-    interface.Label(ventanaMatriz, text=f"  Total de agua: {info_destino['cantidadFinal']} litros", bg='lightblue').pack(pady=5)
+    # Configurar la grilla del frame principal
+    frame_principal.grid_columnconfigure(0, weight=1)
+    frame_principal.grid_columnconfigure(1, weight=1)
+    frame_principal.grid_rowconfigure(0, weight=1)
+
+    # Crear dos frames, uno para cada casa, dentro del frame principal
+    frame_origen = interface.Frame(frame_principal, bg='lightblue')
+    frame_destino = interface.Frame(frame_principal, bg='lightblue')
+
+    # Empacar los frames uno al lado del otro
+    frame_origen.grid(row=0, column=0, padx=20, pady=20, sticky='n')
+    frame_destino.grid(row=0, column=1, padx=20, pady=20, sticky='n')
+
+    # Mostrar información de la casa de origen
+    info_origen = informacion_casas[valor1]
+    interface.Label(frame_origen, text=f"Casa {valor1}:", bg='lightblue').pack(pady=5)
+    interface.Label(frame_origen, text=f"  Personas: {info_origen['personasQueVivenDentroDeLaCasa']}", bg='lightblue').pack(pady=5)
+    interface.Label(frame_origen, text=f"  Agua por persona: {info_origen['cantidadRegularDeAguaEstimadaXpersona']} litros", bg='lightblue').pack(pady=5)
+    interface.Label(frame_origen, text=f"  Total de agua: {info_origen['cantidadFinal']} litros", bg='lightblue').pack(pady=5)
+
+    # Mostrar información de la casa de destino
+    info_destino = informacion_casas[valor2]
+    interface.Label(frame_destino, text=f"Casa {valor2}:", bg='lightblue').pack(pady=5)
+    interface.Label(frame_destino, text=f"  Personas: {info_destino['personasQueVivenDentroDeLaCasa']}", bg='lightblue').pack(pady=5)
+    interface.Label(frame_destino, text=f"  Agua por persona: {info_destino['cantidadRegularDeAguaEstimadaXpersona']} litros", bg='lightblue').pack(pady=5)
+    interface.Label(frame_destino, text=f"  Total de agua: {info_destino['cantidadFinal']} litros", bg='lightblue').pack(pady=5)
+
 
     # Mostrar la ruta y el peso total
     interface.Label(ventanaMatriz, text=f"La ruta final entre la casa {valor1} y la casa {valor2} es: {ruta}", bg='lightblue').pack(pady=10)
-    interface.Label(ventanaMatriz, text=f"La distancia más óptima para enviar agua sin perdida de presión es: {suma_pesos} metros", bg='lightblue').pack(pady=10)
+    interface.Label(ventanaMatriz, text=f"La cantidad más óptima para enviar agua sin perdida de presión es: {suma_pesos/1000} m3", bg='lightblue').pack(pady=10)
 
     # Mostrar el tiempo de ejecución
     interface.Label(ventanaMatriz, text=tiempo_ejecucion, bg='lightblue').pack(pady=10)
@@ -142,7 +166,7 @@ def calcular_ruta_mas_corta(algoritmo, valor1, valor2):
 
 aplicacion = interface.Tk()
 aplicacion.configure(bg='lightblue')
-aplicacion.title("Dashboard")
+aplicacion.title("OPTIMIZACIÓN DE DISTRIBUCIÓN DE AGUA")
 
 interface.Label(aplicacion, text="Seleccione la primera casa:", bg='lightblue').pack(pady=10)
 valorCasa1 = interface.StringVar(aplicacion)
